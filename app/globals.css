@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --background: #071120;
+  --foreground: #f5f0e4;
+  --card: rgba(10, 21, 38, 0.86);
+  --card-foreground: #f5f0e4;
+  --popover: #0c1830;
+  --popover-foreground: #f5f0e4;
+  --primary: #b79b67;
+  --primary-foreground: #08111d;
+  --secondary: #142640;
+  --secondary-foreground: #f5f0e4;
+  --muted: #102034;
+  --muted-foreground: #b9bfca;
+  --accent: #12253e;
+  --accent-foreground: #f5f0e4;
+  --border: rgba(188, 161, 107, 0.22);
+  --input: rgba(255, 255, 255, 0.06);
+  --ring: rgba(183, 155, 103, 0.44);
+  --destructive: #f56c6c;
+  --destructive-foreground: #ffffff;
+  --radius: 1.5rem;
+  --radius-sm: 0.9rem;
+  --radius-md: 1.15rem;
+  --radius-lg: 1.5rem;
+  --shadow-luxe: 0 24px 80px rgba(0, 0, 0, 0.38);
+  --shadow-gold: 0 8px 48px rgba(183, 155, 103, 0.18);
+  --navy-950: #071120;
+  --navy-900: #0b1830;
+  --navy-800: #102341;
+  --gold-500: #b79b67;
+  --gold-300: #dec99d;
+  --cream-100: #f5f0e4;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-navy-950: var(--navy-950);
+  --color-navy-900: var(--navy-900);
+  --color-navy-800: var(--navy-800);
+  --color-gold-500: var(--gold-500);
+  --color-gold-300: var(--gold-300);
+  --color-cream-100: var(--cream-100);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(183, 155, 103, 0.14), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(24, 47, 82, 0.65), transparent 32%),
+    linear-gradient(180deg, #08111d 0%, #091324 38%, #07101d 100%);
+  letter-spacing: -0.01em;
+}
+
+a,
+button,
+input,
+textarea,
+select {
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+::selection {
+  background: rgba(183, 155, 103, 0.3);
+  color: var(--foreground);
+}
+
+.font-display {
+  font-family: var(--font-display), serif;
+  letter-spacing: -0.03em;
+}
+
+.glass-card {
+  backdrop-filter: blur(20px);
+  background: linear-gradient(
+    180deg,
+    rgba(12, 24, 48, 0.9) 0%,
+    rgba(7, 17, 32, 0.86) 100%
+  );
+  box-shadow: var(--shadow-luxe);
+}
+
+.gold-ring {
+  box-shadow:
+    0 0 0 1px rgba(183, 155, 103, 0.18),
+    var(--shadow-gold);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
