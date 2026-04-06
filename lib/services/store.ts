@@ -7,7 +7,9 @@ import { AppError } from "@/lib/error"
 import type {
   BookingMutationInput,
   BookingStatus,
+  ClassTerm,
   InterviewFormat,
+  InterviewRole,
   SlotMutationInput,
   StoryStatus,
 } from "@/lib/types"
@@ -39,6 +41,9 @@ type StoredBooking = {
   createdAt: string
   updatedAt: string
   notes?: string
+  classTerm: ClassTerm
+  interviewRole: InterviewRole
+  favoriteIdea: string
 }
 
 type RowResult<T> = {
@@ -404,6 +409,9 @@ function mapSheetBooking(row: Record<string, string>): StoredBooking {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     notes: row.notes,
+    classTerm: (row.classTerm || "Other / I don't remember") as ClassTerm,
+    interviewRole: (row.interviewRole || "both") as InterviewRole,
+    favoriteIdea: row.favoriteIdea ?? "",
   }
 }
 
@@ -426,6 +434,9 @@ function bookingToSheetRow(booking: StoredBooking) {
     booking.createdAt,
     booking.updatedAt,
     booking.notes ?? "",
+    booking.classTerm,
+    booking.interviewRole,
+    booking.favoriteIdea,
   ]
 }
 

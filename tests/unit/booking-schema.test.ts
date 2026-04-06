@@ -10,7 +10,11 @@ const basePayload = {
   phone: "602-555-0142",
   formatPreference: "virtual" as const,
   reflection:
-    "BOW changed the way our student thinks about preparation, discipline, and how to ask better questions after each competition.",
+    "Sports Economics changed the way our student reasons about incentives, tradeoffs, and how decisions ripple through a team over a season.",
+  favoriteIdea:
+    "Opportunity cost in how coaches allocate practice minutes.",
+  classTerm: "Fall 2024" as const,
+  interviewRole: "both" as const,
   slotId: "slot-123",
   mediaConsent: true,
   honeypot: "",

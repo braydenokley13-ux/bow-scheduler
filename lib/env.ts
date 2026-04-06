@@ -14,6 +14,10 @@ const envSchema = z.object({
   GOOGLE_WORKSPACE_IMPERSONATED_USER: z.string().email().optional(),
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(1).optional(),
+  EMAIL_REPLY_TO: z.string().email().optional(),
+  EMAIL_ADMIN_NOTIFY: z.string().email().optional(),
 })
 
 const parsedEnv = envSchema.parse({
@@ -30,6 +34,10 @@ const parsedEnv = envSchema.parse({
     process.env.GOOGLE_WORKSPACE_IMPERSONATED_USER,
   UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
   UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  EMAIL_FROM: process.env.EMAIL_FROM,
+  EMAIL_REPLY_TO: process.env.EMAIL_REPLY_TO,
+  EMAIL_ADMIN_NOTIFY: process.env.EMAIL_ADMIN_NOTIFY,
 })
 
 export function isProduction() {
@@ -103,6 +111,19 @@ export function requireGoogleConfig() {
     spreadsheetId: parsedEnv.GOOGLE_SHEETS_SPREADSHEET_ID!,
     calendarId: parsedEnv.GOOGLE_CALENDAR_ID!,
     impersonatedUser: parsedEnv.GOOGLE_WORKSPACE_IMPERSONATED_USER,
+  }
+}
+
+export function hasResendConfig() {
+  return Boolean(parsedEnv.RESEND_API_KEY && parsedEnv.EMAIL_FROM)
+}
+
+export function getEmailConfig() {
+  return {
+    apiKey: parsedEnv.RESEND_API_KEY,
+    from: parsedEnv.EMAIL_FROM ?? "BOW Sports Capital <no-reply@localhost>",
+    replyTo: parsedEnv.EMAIL_REPLY_TO,
+    adminNotify: parsedEnv.EMAIL_ADMIN_NOTIFY,
   }
 }
 
