@@ -1,4 +1,5 @@
 import { addDays, format, isWeekend, startOfDay } from "date-fns"
+import { formatInTimeZone } from "date-fns-tz"
 
 import { BOW_OFFSET, BOW_TIMEZONE } from "@/lib/constants"
 import type { AvailabilitySlot } from "@/lib/types"
@@ -19,16 +20,20 @@ export function normalizeSlot(slot: {
   active: boolean
   notes?: string
 }): AvailabilitySlot {
+  const startInstant = buildPhoenixDate(slot.date, slot.startTime)
+  const endInstant = buildPhoenixDate(slot.date, slot.endTime)
+
   return {
     ...slot,
     timezone: BOW_TIMEZONE,
     isoStart: toIsoStart(slot.date, slot.startTime),
     isoEnd: toIsoStart(slot.date, slot.endTime),
-    displayDate: format(buildPhoenixDate(slot.date), "EEEE, MMMM d"),
-    displayTime: `${format(buildPhoenixDate(slot.date, slot.startTime), "h:mm a")} - ${format(
-      buildPhoenixDate(slot.date, slot.endTime),
+    displayDate: formatInTimeZone(startInstant, BOW_TIMEZONE, "EEEE, MMMM d"),
+    displayTime: `${formatInTimeZone(
+      startInstant,
+      BOW_TIMEZONE,
       "h:mm a"
-    )}`,
+    )} - ${formatInTimeZone(endInstant, BOW_TIMEZONE, "h:mm a")}`,
   }
 }
 

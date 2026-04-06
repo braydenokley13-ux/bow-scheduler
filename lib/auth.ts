@@ -1,12 +1,17 @@
 import { cookies } from "next/headers"
 import { SignJWT, jwtVerify } from "jose"
 
-import { ADMIN_SESSION_COOKIE } from "@/lib/constants"
+import {
+  ADMIN_SESSION_COOKIE,
+  MANAGEMENT_TOKEN_AUDIENCE,
+  MANAGEMENT_TOKEN_TTL_DAYS,
+} from "@/lib/constants"
 import { getAuthSecret } from "@/lib/env"
 import { AppError } from "@/lib/error"
-import type { AdminSession } from "@/lib/types"
+import type { AdminSession, ManagementTokenPayload } from "@/lib/types"
 
 const sessionDurationSeconds = 60 * 60 * 12
+const managementTokenTtlSeconds = MANAGEMENT_TOKEN_TTL_DAYS * 24 * 60 * 60
 
 function getSecretKey() {
   return new TextEncoder().encode(getAuthSecret())
@@ -95,4 +100,46 @@ export async function assertAdminRequest(request: Request) {
   }
 
   return session
+}
+
+export async function createManagementToken(payload: ManagementTokenPayload) {
+  const now = Math.floor(Date.now() / 1000)
+
+  return new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setAudience(MANAGEMENT_TOKEN_AUDIENCE)
+    .setIssuedAt(now)
+    .setExpirationTime(now + managementTokenTtlSeconds)
+    .sign(getSecretKey())
+}
+
+export async function verifyManagementToken(
+  token?: string | null
+): Promise<ManagementTokenPayload | null> {
+  if (!token) {
+    return null
+  }
+
+  try {
+    const { payload } = await jwtVerify(token, getSecretKey(), {
+      audience: MANAGEMENT_TOKEN_AUDIENCE,
+    })
+
+    if (
+      !payload ||
+      payload.purpose !== "manage" ||
+      typeof payload.bookingId !== "string" ||
+      typeof payload.email !== "string"
+    ) {
+      return null
+    }
+
+    return {
+      bookingId: payload.bookingId,
+      email: payload.email,
+      purpose: "manage",
+    }
+  } catch {
+    return null
+  }
 }

@@ -2,7 +2,9 @@ import { z } from "zod"
 
 import {
   bookingStatuses,
+  classTerms,
   interviewFormats,
+  interviewRoles,
   storyStatuses,
 } from "@/lib/constants"
 
@@ -15,22 +17,41 @@ export const slotQuerySchema = z.object({
 })
 
 export const bookingRequestSchema = z.object({
-  parentName: z.string().trim().min(2).max(80),
-  studentName: z.string().trim().min(2).max(80),
-  grade: z.string().trim().min(1).max(32),
-  email: z.string().trim().email(),
+  parentName: z.string().trim().min(2, "Parent name is required.").max(80),
+  studentName: z.string().trim().min(2, "Student name is required.").max(80),
+  grade: z
+    .string()
+    .trim()
+    .min(1, "Grade is required.")
+    .max(32),
+  email: z.string().trim().email("Enter a valid email."),
   phone: z
     .string()
     .trim()
-    .min(10)
+    .min(10, "Enter a valid phone number.")
     .max(24)
     .regex(/^[0-9+()\-\s]+$/, "Enter a valid phone number."),
   formatPreference: z.enum(interviewFormats),
-  reflection: z.string().trim().min(20).max(700),
-  slotId: z.string().trim().min(1),
+  reflection: z
+    .string()
+    .trim()
+    .min(20, "Share at least a sentence or two (20+ characters).")
+    .max(900),
+  favoriteIdea: z
+    .string()
+    .trim()
+    .min(8, "Tell us one idea from the class (at least 8 characters).")
+    .max(240),
+  classTerm: z.enum(classTerms, {
+    message: "Select which term you took Sports Economics.",
+  }),
+  interviewRole: z.enum(interviewRoles, {
+    message: "Tell us who will be on the call.",
+  }),
+  slotId: z.string().trim().min(1, "Choose an interview time."),
   mediaConsent: z.boolean().refine((value) => value, {
     message:
-      "Please confirm that BOW may contact you for publication approval before sharing any story publicly.",
+      "Please confirm that BOW may follow up for approval before anything is published.",
   }),
   honeypot: z.string().trim().max(0).optional().default(""),
 })
@@ -71,3 +92,16 @@ export const bookingMutationSchema = z
       message: "Provide at least one booking update.",
     }
   )
+
+export const manageRescheduleSchema = z.object({
+  token: z.string().min(1),
+  slotId: z.string().min(1, "Choose a new time."),
+})
+
+export const manageCancelSchema = z.object({
+  token: z.string().min(1),
+})
+
+export const lookupRequestSchema = z.object({
+  email: z.string().trim().email("Enter the email you booked with."),
+})

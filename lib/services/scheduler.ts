@@ -1,5 +1,28 @@
+import {
+  createManagementToken,
+  verifyManagementToken,
+} from "@/lib/auth"
 import { sortSlots } from "@/lib/date"
+import { getAppOrigin } from "@/lib/env"
 import { AppError } from "@/lib/error"
+import {
+  cancelInterviewEvent,
+  createInterviewEvent,
+  updateInterviewEvent,
+} from "@/lib/services/calendar"
+import {
+  sendBookingConfirmationEmail,
+  sendCancellationEmail,
+  sendManagementLinkEmail,
+  sendRescheduleConfirmationEmail,
+} from "@/lib/services/email"
+import { acquireSlotLock } from "@/lib/services/locks"
+import {
+  getSchedulerStore,
+  toDisplaySlot,
+  type StoredBooking,
+  type StoredSlot,
+} from "@/lib/services/store"
 import type {
   AvailabilitySlot,
   BookingMutationInput,
@@ -8,14 +31,6 @@ import type {
   BookingSuccessResponse,
   SlotMutationInput,
 } from "@/lib/types"
-import { createInterviewEvent, cancelInterviewEvent, updateInterviewEvent } from "@/lib/services/calendar"
-import { acquireSlotLock } from "@/lib/services/locks"
-import {
-  getSchedulerStore,
-  toDisplaySlot,
-  type StoredBooking,
-  type StoredSlot,
-} from "@/lib/services/store"
 
 function hydrateBooking(booking: StoredBooking, slots: StoredSlot[]): BookingRecord {
   const slot = slots.find((candidate) => candidate.id === booking.slotId)
@@ -30,17 +45,32 @@ function hydrateBooking(booking: StoredBooking, slots: StoredSlot[]): BookingRec
   }
 }
 
-function buildSuccessResponse(booking: BookingRecord): BookingSuccessResponse {
+async function buildSuccessResponse(
+  booking: BookingRecord
+): Promise<BookingSuccessResponse> {
+  const manageToken = await createManagementToken({
+    bookingId: booking.id,
+    email: booking.email,
+    purpose: "manage",
+  })
+
+  const origin = getAppOrigin()
+  const manageUrl = `${origin}/manage/${manageToken}`
+  const icsUrl = `${origin}/api/bookings/${booking.id}/ics?token=${manageToken}`
+
   return {
     booking,
+    manageToken,
+    manageUrl,
+    icsUrl,
     summary: {
-      title: "Your BOW story interview is reserved",
+      title: "You're on the schedule",
       message:
-        "We have reserved your family interview and sent the calendar invitation. Thank you for helping us highlight the growth, curiosity, and discipline BOW brings to student-athletes.",
+        "We reserved your Sports Economics interview and sent a calendar invitation to your email. Come ready with one idea from class that stuck with you — that's the conversation we want to have.",
       nextSteps: [
-        "Check your inbox for the calendar invitation and meeting link.",
-        "Bring one or two moments that best capture how BOW changed the way your student thinks about sports.",
-        "If your story is selected for publication, BOW will follow up for approval before anything is shared publicly.",
+        "Check your inbox for the confirmation email and calendar invite.",
+        "Think of one concept from Sports Economics that changed the way you look at a game, an incentive, or a decision.",
+        "Use the management link in the email if you ever need to reschedule or cancel.",
       ],
     },
   }
@@ -79,8 +109,7 @@ export async function updateAdminSlot(slotId: string, input: SlotMutationInput) 
   const bookings = await store.listBookings()
   const hasActiveBooking = bookings.some(
     (booking) =>
-      booking.slotId === slotId &&
-      booking.bookingStatus === "scheduled"
+      booking.slotId === slotId && booking.bookingStatus === "scheduled"
   )
 
   if (hasActiveBooking) {
@@ -109,7 +138,9 @@ export async function deleteAdminSlot(slotId: string) {
   await store.deleteSlot(slotId)
 }
 
-export async function createBooking(input: BookingRequest): Promise<BookingSuccessResponse> {
+export async function createBooking(
+  input: BookingRequest
+): Promise<BookingSuccessResponse> {
   const store = getSchedulerStore()
   const lock = await acquireSlotLock(input.slotId)
 
@@ -150,6 +181,9 @@ export async function createBooking(input: BookingRequest): Promise<BookingSucce
         eventId: event.eventId,
         meetLink: event.meetLink,
         notes: "",
+        classTerm: input.classTerm,
+        interviewRole: input.interviewRole,
+        favoriteIdea: input.favoriteIdea,
       })
 
       const hydrated = hydrateBooking(booking, [
@@ -159,7 +193,13 @@ export async function createBooking(input: BookingRequest): Promise<BookingSucce
         },
       ])
 
-      return buildSuccessResponse(hydrated)
+      const response = await buildSuccessResponse(hydrated)
+
+      await sendBookingConfirmationEmail(hydrated, response.manageUrl).catch(
+        (error) => console.warn("[email] confirmation failed:", error)
+      )
+
+      return response
     } catch (error) {
       await cancelInterviewEvent(event.eventId).catch(() => undefined)
       await store.updateSlot(slot.id, {
@@ -250,4 +290,108 @@ export async function updateAdminBooking(
   const snapshot = await store.listSlots()
 
   return hydrateBooking(updated, snapshot)
+}
+
+async function findBookingRecordById(bookingId: string) {
+  const store = getSchedulerStore()
+  const booking = await store.findBooking(bookingId)
+
+  if (!booking) {
+    throw new AppError("We could not find that booking.", 404)
+  }
+
+  const slots = await store.listSlots()
+  return hydrateBooking(booking, slots)
+}
+
+export async function getBookingFromToken(token: string) {
+  const payload = await verifyManagementToken(token)
+  if (!payload) {
+    throw new AppError(
+      "This management link is invalid or has expired. Request a new one from the lookup page.",
+      401
+    )
+  }
+
+  const booking = await findBookingRecordById(payload.bookingId)
+
+  if (booking.email.toLowerCase() !== payload.email.toLowerCase()) {
+    throw new AppError("This management link is no longer valid.", 401)
+  }
+
+  return { booking, token }
+}
+
+export async function rescheduleBookingByToken(token: string, newSlotId: string) {
+  const { booking } = await getBookingFromToken(token)
+
+  if (booking.bookingStatus === "cancelled") {
+    throw new AppError(
+      "This interview was already cancelled. Book a new time from the main page.",
+      409
+    )
+  }
+
+  if (booking.slotId === newSlotId) {
+    return booking
+  }
+
+  const updated = await updateAdminBooking(booking.id, { slotId: newSlotId })
+  const origin = getAppOrigin()
+  const manageUrl = `${origin}/manage/${token}`
+
+  await sendRescheduleConfirmationEmail(updated, manageUrl).catch((error) =>
+    console.warn("[email] reschedule notice failed:", error)
+  )
+
+  return updated
+}
+
+export async function cancelBookingByToken(token: string) {
+  const { booking } = await getBookingFromToken(token)
+
+  if (booking.bookingStatus === "cancelled") {
+    return booking
+  }
+
+  const updated = await updateAdminBooking(booking.id, {
+    bookingStatus: "cancelled",
+  })
+
+  await sendCancellationEmail(updated).catch((error) =>
+    console.warn("[email] cancellation notice failed:", error)
+  )
+
+  return updated
+}
+
+export async function issueManagementLinkForEmail(email: string) {
+  // We always report success to avoid account enumeration.
+  const normalized = email.toLowerCase().trim()
+  const store = getSchedulerStore()
+  const bookings = await store.listBookings()
+  const matching = bookings
+    .filter((booking) => booking.email.toLowerCase() === normalized)
+    .filter((booking) => booking.bookingStatus !== "cancelled")
+
+  if (matching.length === 0) {
+    return { sent: 0 }
+  }
+
+  for (const booking of matching) {
+    const token = await createManagementToken({
+      bookingId: booking.id,
+      email: booking.email,
+      purpose: "manage",
+    })
+    const manageUrl = `${getAppOrigin()}/manage/${token}`
+    const slots = await store.listSlots()
+    const hydrated = hydrateBooking(booking, slots)
+
+    await sendManagementLinkEmail(hydrated, manageUrl).catch((error) =>
+      console.warn("[email] management link failed:", error)
+    )
+  }
+
+  return { sent: matching.length }
 }
